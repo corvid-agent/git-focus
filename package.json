@@ -1,0 +1,14 @@
+{
+  "name": "git-focus",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "npx serve . -p 8080 -s",
+    "test": "npx playwright test",
+    "test:ui": "npx playwright test --ui"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49",
+    "serve": "^14"
+  }
+}

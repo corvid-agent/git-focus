@@ -1,0 +1,1201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>git-focus — What should you work on?</title>
+  <meta name="description" content="Analyze a GitHub profile and get a prioritized list of things to focus on.">
+  <meta property="og:title" content="git-focus — What should you work on?">
+  <meta property="og:description" content="Analyze a GitHub profile and get a prioritized list of things to focus on.">
+  <meta property="og:image" content="docs/preview.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --bg-card: rgba(255, 255, 255, 0.03);
+      --bg-card-hover: rgba(255, 255, 255, 0.06);
+      --border: rgba(255, 255, 255, 0.08);
+      --border-hover: rgba(255, 255, 255, 0.15);
+      --text: #e2e2e8;
+      --text-dim: #8888a0;
+      --text-bright: #ffffff;
+      --accent: #6c5ce7;
+      --accent-2: #00d2ff;
+      --health: #00d2ff;
+      --work: #f0a500;
+      --growth: #a855f7;
+      --danger: #ef4444;
+      --glass: rgba(255, 255, 255, 0.04);
+      --glass-border: rgba(255, 255, 255, 0.1);
+      --radius: 12px;
+      --radius-lg: 16px;
+      --font-mono: 'JetBrains Mono', monospace;
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+      line-height: 1.6;
+    }
+
+    canvas#particles {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      background: rgba(10, 10, 15, 0.8);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .logo {
+      font-family: var(--font-mono);
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text-bright);
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
+    .logo span { color: var(--accent); }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .btn {
+      font-family: var(--font-sans);
+      font-size: 13px;
+      font-weight: 500;
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--glass);
+      color: var(--text);
+      cursor: pointer;
+      transition: all 0.2s;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+
+    .btn:hover {
+      border-color: var(--border-hover);
+      background: var(--bg-card-hover);
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    .btn-primary:hover {
+      background: #5b4bd6;
+      border-color: #5b4bd6;
+    }
+
+    .btn-sm { padding: 6px 12px; font-size: 12px; }
+
+    .rate-badge {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-dim);
+      padding: 4px 8px;
+      border-radius: 6px;
+      background: var(--glass);
+      border: 1px solid var(--border);
+    }
+
+    main {
+      position: relative;
+      z-index: 1;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    /* Landing state */
+    #landing {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 70vh;
+      text-align: center;
+      gap: 32px;
+    }
+
+    .hero-title {
+      font-family: var(--font-mono);
+      font-size: clamp(28px, 5vw, 42px);
+      font-weight: 700;
+      color: var(--text-bright);
+      line-height: 1.2;
+    }
+
+    .hero-title .highlight {
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero-subtitle {
+      font-size: 16px;
+      color: var(--text-dim);
+      max-width: 480px;
+    }
+
+    .search-box {
+      display: flex;
+      gap: 8px;
+      width: 100%;
+      max-width: 480px;
+    }
+
+    .search-box input {
+      flex: 1;
+      font-family: var(--font-mono);
+      font-size: 15px;
+      padding: 12px 16px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--glass);
+      color: var(--text-bright);
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .search-box input::placeholder { color: var(--text-dim); }
+    .search-box input:focus { border-color: var(--accent); }
+
+    .search-box button {
+      padding: 12px 24px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .landing-footer {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      color: var(--text-dim);
+      font-size: 13px;
+    }
+
+    .landing-footer a { color: var(--accent-2); text-decoration: none; }
+    .landing-footer a:hover { text-decoration: underline; }
+
+    /* Loading state */
+    #loading {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 60vh;
+      gap: 32px;
+      text-align: center;
+    }
+
+    .spinner {
+      width: 48px; height: 48px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loading-steps {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      font-family: var(--font-mono);
+      font-size: 13px;
+    }
+
+    .loading-step { color: var(--text-dim); transition: color 0.3s; }
+    .loading-step.active { color: var(--accent-2); }
+    .loading-step.done { color: var(--text-dim); opacity: 0.5; }
+
+    /* Results state */
+    #results {
+      display: none;
+      flex-direction: column;
+      gap: 24px;
+      padding-bottom: 80px;
+    }
+
+    .results-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .cache-notice {
+      font-size: 12px;
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+    }
+
+    .profile-card {
+      display: flex;
+      gap: 20px;
+      padding: 24px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      backdrop-filter: blur(10px);
+    }
+
+    .profile-card img {
+      width: 80px; height: 80px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+    }
+
+    .profile-info { flex: 1; }
+
+    .profile-info h2 {
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--text-bright);
+    }
+
+    .profile-info .username {
+      font-family: var(--font-mono);
+      font-size: 14px;
+      color: var(--text-dim);
+    }
+
+    .profile-info .bio {
+      font-size: 14px;
+      color: var(--text);
+      margin-top: 4px;
+    }
+
+    .profile-stats {
+      display: flex;
+      gap: 16px;
+      margin-top: 8px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+
+    .profile-stats span strong {
+      color: var(--text-bright);
+    }
+
+    /* Score overview */
+    .score-overview {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+
+    .score-card {
+      padding: 16px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      text-align: center;
+    }
+
+    .score-card .count {
+      font-family: var(--font-mono);
+      font-size: 28px;
+      font-weight: 700;
+    }
+
+    .score-card .label {
+      font-size: 12px;
+      color: var(--text-dim);
+      margin-top: 2px;
+    }
+
+    .score-card.health { border-top: 3px solid var(--health); }
+    .score-card.health .count { color: var(--health); }
+    .score-card.work { border-top: 3px solid var(--work); }
+    .score-card.work .count { color: var(--work); }
+    .score-card.growth { border-top: 3px solid var(--growth); }
+    .score-card.growth .count { color: var(--growth); }
+
+    /* Focus list */
+    .focus-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .section-title {
+      font-family: var(--font-mono);
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-bright);
+      margin-bottom: 4px;
+    }
+
+    .focus-item {
+      padding: 16px 20px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+      transition: all 0.2s;
+    }
+
+    .focus-item:hover {
+      background: var(--bg-card-hover);
+      border-color: var(--border-hover);
+    }
+
+    .focus-rank {
+      font-family: var(--font-mono);
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-dim);
+      min-width: 28px;
+      text-align: center;
+      padding-top: 2px;
+    }
+
+    .focus-content { flex: 1; }
+
+    .focus-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-bright);
+      margin-bottom: 4px;
+    }
+
+    .focus-title a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .focus-title a:hover { color: var(--accent-2); }
+
+    .focus-desc {
+      font-size: 13px;
+      color: var(--text-dim);
+      line-height: 1.5;
+    }
+
+    .focus-meta {
+      display: flex;
+      gap: 12px;
+      margin-top: 8px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+    }
+
+    .focus-tag {
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-weight: 500;
+    }
+
+    .focus-tag.health { background: rgba(0, 210, 255, 0.1); color: var(--health); }
+    .focus-tag.work { background: rgba(240, 165, 0, 0.1); color: var(--work); }
+    .focus-tag.growth { background: rgba(168, 85, 247, 0.1); color: var(--growth); }
+
+    .focus-score {
+      color: var(--text-dim);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* Error */
+    .error-box {
+      padding: 16px 20px;
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      border-radius: var(--radius);
+      color: var(--danger);
+      font-size: 14px;
+      text-align: center;
+    }
+
+    /* Empty state */
+    .empty-state {
+      text-align: center;
+      padding: 48px 24px;
+      color: var(--text-dim);
+    }
+
+    .empty-state .emoji { font-size: 48px; margin-bottom: 16px; }
+    .empty-state p { font-size: 15px; }
+
+    /* Responsive */
+    @media (max-width: 600px) {
+      header { padding: 10px 16px; }
+      main { padding: 16px; }
+      .profile-card { flex-direction: column; align-items: center; text-align: center; }
+      .profile-stats { justify-content: center; }
+      .score-overview { grid-template-columns: 1fr; }
+      .search-box { flex-direction: column; }
+      .search-box button { width: 100%; justify-content: center; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="particles"></canvas>
+
+  <header>
+    <a href="./" class="logo">git<span>-focus</span></a>
+    <div class="header-actions">
+      <span id="rateLimit" class="rate-badge" style="display:none"></span>
+      <button id="authBtn" class="btn btn-sm" onclick="handleAuth()">Sign in with GitHub</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- Landing -->
+    <div id="landing">
+      <div>
+        <h1 class="hero-title">What should you <span class="highlight">focus</span> on?</h1>
+        <p class="hero-subtitle">Analyze any GitHub profile and get a prioritized list of actionable items across repo health, active work, and growth opportunities.</p>
+      </div>
+      <form class="search-box" onsubmit="event.preventDefault(); startAnalysis(document.getElementById('usernameInput').value)">
+        <input type="text" id="usernameInput" placeholder="GitHub username" autocomplete="off" spellcheck="false" autofocus>
+        <button type="submit" class="btn btn-primary">Analyze</button>
+      </form>
+      <div class="landing-footer">
+        <span>Works without sign-in (60 req/hr) &middot; <a href="#" onclick="event.preventDefault(); handleAuth()">Sign in</a> for 5,000 req/hr</span>
+        <span>Try it: <a href="?u=octocat" data-demo>octocat</a></span>
+      </div>
+    </div>
+
+    <!-- Loading -->
+    <div id="loading">
+      <div class="spinner"></div>
+      <div class="loading-steps" id="loadingSteps"></div>
+    </div>
+
+    <!-- Results -->
+    <div id="results">
+      <div class="results-header">
+        <button class="btn btn-sm" onclick="showLanding()">&larr; New search</button>
+        <span id="cacheNotice" class="cache-notice"></span>
+        <button id="rescanBtn" class="btn btn-sm btn-primary" style="display:none" onclick="rescan()">Re-scan</button>
+      </div>
+      <div id="profileCard"></div>
+      <div id="scoreOverview" class="score-overview"></div>
+      <div class="section-title">Focus Items</div>
+      <div id="focusList" class="focus-list"></div>
+    </div>
+
+    <div id="errorBox" class="error-box" style="display:none"></div>
+  </main>
+
+  <script>
+    // ── Config ──
+    const GITHUB_CLIENT_ID = 'Ov23liXfNsYPAVPCmKTD';
+    const WORKER_URL = 'https://git-focus-auth.corvid-agent.workers.dev';
+    const CACHE_PREFIX = 'gitfocus:result:';
+    const TOKEN_KEY = 'gitfocus:token';
+    const CACHE_STALE_MS = 4 * 60 * 60 * 1000;
+    const CACHE_EXPIRE_MS = 24 * 60 * 60 * 1000;
+
+    let ghToken = localStorage.getItem(TOKEN_KEY);
+    let rateRemaining = null;
+    let rateLimit = null;
+    let currentUsername = null;
+
+    // ── OAuth ──
+    function handleAuth() {
+      if (ghToken) {
+        ghToken = null;
+        localStorage.removeItem(TOKEN_KEY);
+        updateAuthUI();
+        return;
+      }
+      const state = crypto.randomUUID();
+      sessionStorage.setItem('gitfocus:oauth_state', state);
+      const params = new URLSearchParams({
+        client_id: GITHUB_CLIENT_ID,
+        redirect_uri: location.origin + location.pathname,
+        scope: '',
+        state
+      });
+      location.href = 'https://github.com/login/oauth/authorize?' + params;
+    }
+
+    function handleOAuthCallback() {
+      const params = new URLSearchParams(location.search);
+      const code = params.get('code');
+      const state = params.get('state');
+      if (!code || !state) return;
+
+      const savedState = sessionStorage.getItem('gitfocus:oauth_state');
+      sessionStorage.removeItem('gitfocus:oauth_state');
+      history.replaceState({}, '', location.pathname);
+
+      if (state !== savedState) {
+        showError('OAuth state mismatch. Please try signing in again.');
+        return;
+      }
+
+      exchangeToken(code);
+    }
+
+    async function exchangeToken(code) {
+      try {
+        const res = await fetch(WORKER_URL + '/exchange', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code })
+        });
+        const data = await res.json();
+        if (data.access_token) {
+          ghToken = data.access_token;
+          localStorage.setItem(TOKEN_KEY, ghToken);
+          updateAuthUI();
+        } else {
+          showError('Failed to sign in: ' + (data.error || 'unknown error'));
+        }
+      } catch (e) {
+        showError('Failed to exchange token: ' + e.message);
+      }
+    }
+
+    function updateAuthUI() {
+      const btn = document.getElementById('authBtn');
+      if (ghToken) {
+        btn.textContent = 'Sign out';
+      } else {
+        btn.textContent = 'Sign in with GitHub';
+      }
+    }
+
+    // ── UI State ──
+    function showLanding() {
+      document.getElementById('landing').style.display = 'flex';
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('results').style.display = 'none';
+      document.getElementById('errorBox').style.display = 'none';
+      history.replaceState({}, '', location.pathname);
+    }
+
+    function showLoading() {
+      document.getElementById('landing').style.display = 'none';
+      document.getElementById('loading').style.display = 'flex';
+      document.getElementById('results').style.display = 'none';
+      document.getElementById('errorBox').style.display = 'none';
+    }
+
+    function showResults() {
+      document.getElementById('landing').style.display = 'none';
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('results').style.display = 'flex';
+      document.getElementById('errorBox').style.display = 'none';
+    }
+
+    function showError(msg) {
+      const box = document.getElementById('errorBox');
+      box.textContent = msg;
+      box.style.display = 'block';
+      document.getElementById('loading').style.display = 'none';
+    }
+
+    // ── Loading Steps ──
+    const STEPS = [
+      'Fetching profile...',
+      'Fetching repositories...',
+      'Checking open PRs...',
+      'Checking assigned issues...',
+      'Fetching recent activity...',
+      'Checking CI status...',
+      'Analyzing findings...',
+    ];
+
+    function setLoadingStep(index) {
+      const el = document.getElementById('loadingSteps');
+      el.innerHTML = STEPS.map((s, i) => {
+        const cls = i < index ? 'done' : i === index ? 'active' : '';
+        return `<div class="loading-step ${cls}">${s}</div>`;
+      }).join('');
+    }
+
+    // ── API Layer ──
+    async function ghFetch(path) {
+      const headers = { Accept: 'application/vnd.github+json' };
+      if (ghToken) headers.Authorization = 'Bearer ' + ghToken;
+
+      const res = await fetch('https://api.github.com' + path, { headers });
+
+      const remaining = res.headers.get('x-ratelimit-remaining');
+      const limit = res.headers.get('x-ratelimit-limit');
+      if (remaining !== null) {
+        rateRemaining = parseInt(remaining);
+        rateLimit = parseInt(limit);
+        updateRateUI();
+      }
+
+      if (!res.ok) {
+        if (res.status === 404) throw new Error('User not found');
+        if (res.status === 403 && rateRemaining === 0) throw new Error('Rate limit exceeded. Sign in with GitHub for 5,000 req/hr.');
+        throw new Error(`GitHub API error: ${res.status}`);
+      }
+
+      return res.json();
+    }
+
+    async function ghFetchAll(path) {
+      let page = 1;
+      let all = [];
+      while (true) {
+        const sep = path.includes('?') ? '&' : '?';
+        const data = await ghFetch(`${path}${sep}per_page=100&page=${page}`);
+        all = all.concat(data);
+        if (data.length < 100) break;
+        page++;
+      }
+      return all;
+    }
+
+    function updateRateUI() {
+      const badge = document.getElementById('rateLimit');
+      if (rateRemaining !== null) {
+        badge.textContent = `${rateRemaining}/${rateLimit}`;
+        badge.style.display = 'inline';
+      }
+    }
+
+    // ── Cache ──
+    function getCached(username) {
+      const key = CACHE_PREFIX + username.toLowerCase();
+      const raw = localStorage.getItem(key);
+      if (!raw) return null;
+      try {
+        const cached = JSON.parse(raw);
+        const age = Date.now() - cached.timestamp;
+        if (age > CACHE_EXPIRE_MS) {
+          localStorage.removeItem(key);
+          return null;
+        }
+        cached.age = age;
+        cached.stale = age > CACHE_STALE_MS;
+        return cached;
+      } catch {
+        return null;
+      }
+    }
+
+    function setCache(username, data) {
+      const key = CACHE_PREFIX + username.toLowerCase();
+      localStorage.setItem(key, JSON.stringify({ ...data, timestamp: Date.now() }));
+    }
+
+    // ── Analysis ──
+    async function startAnalysis(username) {
+      username = username.trim().replace(/^@/, '');
+      if (!username) return;
+      currentUsername = username;
+
+      history.replaceState({}, '', '?u=' + encodeURIComponent(username));
+
+      // Check cache
+      const cached = getCached(username);
+      if (cached && !cached.stale) {
+        renderResults(cached, true);
+        return;
+      }
+
+      showLoading();
+      setLoadingStep(0);
+
+      try {
+        const data = await fetchAndAnalyze(username);
+        setCache(username, data);
+        renderResults(data, false);
+      } catch (e) {
+        showError(e.message);
+        // Show stale cache if available
+        if (cached) {
+          renderResults(cached, true);
+        }
+      }
+    }
+
+    async function fetchAndAnalyze(username) {
+      // Step 0: Profile
+      setLoadingStep(0);
+      let profile;
+      if (ghToken) {
+        try {
+          const authed = await ghFetch('/user');
+          if (authed.login.toLowerCase() === username.toLowerCase()) {
+            profile = authed;
+          }
+        } catch { /* fall through */ }
+      }
+      if (!profile) {
+        profile = await ghFetch(`/users/${encodeURIComponent(username)}`);
+      }
+
+      // Step 1: Repos
+      setLoadingStep(1);
+      const repos = await ghFetchAll(`/users/${encodeURIComponent(username)}/repos?sort=updated`);
+
+      // Step 2: Open PRs
+      setLoadingStep(2);
+      let openPRs = [];
+      try {
+        const prData = await ghFetch(`/search/issues?q=author:${encodeURIComponent(username)}+type:pr+state:open&per_page=30`);
+        openPRs = prData.items || [];
+      } catch { /* non-critical */ }
+
+      // Step 3: Assigned issues
+      setLoadingStep(3);
+      let assignedIssues = [];
+      try {
+        const issueData = await ghFetch(`/search/issues?q=assignee:${encodeURIComponent(username)}+type:issue+state:open&per_page=30`);
+        assignedIssues = issueData.items || [];
+      } catch { /* non-critical */ }
+
+      // Step 4: Events
+      setLoadingStep(4);
+      let events = [];
+      try {
+        events = await ghFetch(`/users/${encodeURIComponent(username)}/events?per_page=100`);
+      } catch { /* non-critical */ }
+
+      // Step 5: CI status for top repos (only if authenticated to save rate limit)
+      setLoadingStep(5);
+      const ciResults = {};
+      if (ghToken) {
+        const topRepos = repos
+          .filter(r => !r.fork)
+          .sort((a, b) => b.stargazers_count - a.stargazers_count)
+          .slice(0, 10);
+
+        const ciChecks = topRepos.map(async (repo) => {
+          try {
+            const runs = await ghFetch(`/repos/${repo.full_name}/actions/runs?per_page=1`);
+            if (runs.workflow_runs && runs.workflow_runs.length > 0) {
+              ciResults[repo.full_name] = runs.workflow_runs[0];
+            }
+          } catch { /* skip */ }
+        });
+        await Promise.all(ciChecks);
+      }
+
+      // Step 6: Analyze
+      setLoadingStep(6);
+      const findings = analyze(profile, repos, openPRs, assignedIssues, events, ciResults);
+
+      return { profile, findings, repoCount: repos.length };
+    }
+
+    function analyze(profile, repos, openPRs, assignedIssues, events, ciResults) {
+      const findings = [];
+      const ownRepos = repos.filter(r => !r.fork);
+      const now = Date.now();
+      const SIX_MONTHS = 6 * 30 * 24 * 60 * 60 * 1000;
+      const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
+
+      // ── Health Findings ──
+      for (const repo of ownRepos) {
+        const stars = repo.stargazers_count;
+        const starBoost = Math.min(stars / 50, 2);
+
+        // Missing license
+        if (!repo.license && stars > 0) {
+          findings.push({
+            category: 'health',
+            title: `Add a license to ${repo.name}`,
+            desc: `${repo.name} has ${stars} star${stars !== 1 ? 's' : ''} but no license. Without a license, others legally cannot use or contribute to your code.`,
+            repo: repo.full_name,
+            url: `https://github.com/${repo.full_name}`,
+            impact: Math.min(2 + starBoost, 5),
+            effort: 5,
+            urgency: 2 + Math.min(starBoost, 2),
+          });
+        }
+
+        // Missing description
+        if (!repo.description && stars > 0) {
+          findings.push({
+            category: 'health',
+            title: `Add a description to ${repo.name}`,
+            desc: `${repo.name} has ${stars} star${stars !== 1 ? 's' : ''} but no description. A clear description helps others discover and understand your project.`,
+            repo: repo.full_name,
+            url: `https://github.com/${repo.full_name}`,
+            impact: Math.min(1 + starBoost, 4),
+            effort: 5,
+            urgency: 1,
+          });
+        }
+
+        // Stale repos with stars
+        const pushedAt = new Date(repo.pushed_at).getTime();
+        if (stars >= 3 && (now - pushedAt) > SIX_MONTHS) {
+          const months = Math.floor((now - pushedAt) / (30 * 24 * 60 * 60 * 1000));
+          findings.push({
+            category: 'health',
+            title: `Update ${repo.name} (stale ${months}mo)`,
+            desc: `${repo.name} has ${stars} stars but hasn't been pushed to in ${months} months. Consider archiving it or adding a maintenance note.`,
+            repo: repo.full_name,
+            url: `https://github.com/${repo.full_name}`,
+            impact: Math.min(2 + starBoost, 5),
+            effort: 3,
+            urgency: 2,
+          });
+        }
+      }
+
+      // No CI for repos with CI results available
+      if (ghToken) {
+        for (const repo of ownRepos.slice(0, 10)) {
+          if (!ciResults[repo.full_name] && repo.stargazers_count >= 2) {
+            findings.push({
+              category: 'health',
+              title: `Add CI to ${repo.name}`,
+              desc: `${repo.name} has no GitHub Actions workflows. CI helps catch bugs early and builds contributor confidence.`,
+              repo: repo.full_name,
+              url: `https://github.com/${repo.full_name}/actions`,
+              impact: 3,
+              effort: 3,
+              urgency: 1,
+            });
+          }
+        }
+
+        // Failing CI
+        for (const [fullName, run] of Object.entries(ciResults)) {
+          if (run.conclusion === 'failure') {
+            const name = fullName.split('/')[1];
+            findings.push({
+              category: 'work',
+              title: `Fix failing CI on ${name}`,
+              desc: `The latest workflow run on ${name} (default branch) failed. Broken CI blocks contributors and merges.`,
+              repo: fullName,
+              url: run.html_url,
+              impact: 4,
+              effort: 3,
+              urgency: 4,
+            });
+          }
+        }
+      }
+
+      // ── Work Findings ──
+      // Open PRs
+      for (const pr of openPRs.slice(0, 5)) {
+        const age = now - new Date(pr.created_at).getTime();
+        const days = Math.floor(age / (24 * 60 * 60 * 1000));
+        const isStale = days > 30;
+
+        findings.push({
+          category: 'work',
+          title: isStale ? `Stale PR: ${truncate(pr.title, 50)}` : `Open PR: ${truncate(pr.title, 50)}`,
+          desc: `Opened ${days} day${days !== 1 ? 's' : ''} ago in ${pr.repository_url.split('/').slice(-2).join('/')}. ${isStale ? 'Consider closing or finishing this.' : 'Review and merge or close.'}`,
+          url: pr.html_url,
+          impact: isStale ? 3 : 2,
+          effort: 4,
+          urgency: isStale ? 4 : 2,
+        });
+      }
+
+      // Assigned issues
+      if (assignedIssues.length > 3) {
+        findings.push({
+          category: 'work',
+          title: `${assignedIssues.length} issues assigned to you`,
+          desc: `You have ${assignedIssues.length} open issues assigned. Consider triaging: close resolved ones, unassign stale ones, or prioritize the most impactful.`,
+          url: `https://github.com/issues?q=assignee:${encodeURIComponent(profile.login)}+is:open`,
+          impact: 3,
+          effort: 3,
+          urgency: 3,
+        });
+      } else {
+        for (const issue of assignedIssues) {
+          findings.push({
+            category: 'work',
+            title: `Assigned: ${truncate(issue.title, 50)}`,
+            desc: `Open issue in ${issue.repository_url.split('/').slice(-2).join('/')}.`,
+            url: issue.html_url,
+            impact: 2,
+            effort: 3,
+            urgency: 2,
+          });
+        }
+      }
+
+      // ── Growth Findings ──
+      // Popular repos gone quiet
+      for (const repo of ownRepos) {
+        const stars = repo.stargazers_count;
+        const pushedAt = new Date(repo.pushed_at).getTime();
+        if (stars >= 10 && (now - pushedAt) > SIX_MONTHS) {
+          findings.push({
+            category: 'growth',
+            title: `Revive ${repo.name} (${stars} stars)`,
+            desc: `${repo.name} has ${stars} stars and community interest. A release, blog post, or issue triage could reignite activity.`,
+            repo: repo.full_name,
+            url: `https://github.com/${repo.full_name}`,
+            impact: Math.min(3 + stars / 50, 5),
+            effort: 2,
+            urgency: 2,
+          });
+        }
+      }
+
+      // Profile completeness
+      const missing = [];
+      if (!profile.bio) missing.push('bio');
+      if (!profile.company) missing.push('company');
+      if (!profile.location) missing.push('location');
+      if (!profile.blog) missing.push('website');
+      if (!profile.twitter_username) missing.push('Twitter/X');
+      if (missing.length >= 2) {
+        findings.push({
+          category: 'growth',
+          title: `Complete your GitHub profile`,
+          desc: `Missing: ${missing.join(', ')}. A complete profile helps with discoverability and networking.`,
+          url: 'https://github.com/settings/profile',
+          impact: 2,
+          effort: 5,
+          urgency: 1,
+        });
+      }
+
+      // Activity streak
+      if (events.length > 0) {
+        const activeDays = new Set(events.map(e => e.created_at.slice(0, 10))).size;
+        if (activeDays < 5) {
+          findings.push({
+            category: 'growth',
+            title: 'Increase your contribution frequency',
+            desc: `Only ${activeDays} active day${activeDays !== 1 ? 's' : ''} in your recent public activity. Consistent contributions build visibility and momentum.`,
+            url: `https://github.com/${profile.login}`,
+            impact: 2,
+            effort: 2,
+            urgency: 1,
+          });
+        }
+      }
+
+      // Deduplicate: if a repo appears in both health (stale) and growth (revive), keep only the higher-scoring one
+      const repoFindings = new Map();
+      const nonRepoFindings = [];
+      for (const f of findings) {
+        if (f.repo) {
+          const key = f.repo + ':' + f.category;
+          const existing = repoFindings.get(f.repo);
+          if (!existing || scoreItem(f) > scoreItem(existing)) {
+            repoFindings.set(f.repo, f);
+          }
+        } else {
+          nonRepoFindings.push(f);
+        }
+      }
+
+      const deduped = [...repoFindings.values(), ...nonRepoFindings];
+
+      // Score and sort
+      return deduped
+        .map(f => ({ ...f, score: scoreItem(f) }))
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 10);
+    }
+
+    function scoreItem(f) {
+      return f.impact * 0.4 + f.effort * 0.3 + f.urgency * 0.3;
+    }
+
+    function truncate(s, len) {
+      return s.length > len ? s.slice(0, len - 1) + '\u2026' : s;
+    }
+
+    // ── Rendering ──
+    function renderResults(data, fromCache) {
+      const { profile, findings, repoCount } = data;
+
+      // Profile card
+      document.getElementById('profileCard').innerHTML = `
+        <div class="profile-card">
+          <img src="${profile.avatar_url}" alt="${profile.login}" loading="lazy">
+          <div class="profile-info">
+            <h2>${escapeHtml(profile.name || profile.login)}</h2>
+            <div class="username">@${escapeHtml(profile.login)}</div>
+            ${profile.bio ? `<div class="bio">${escapeHtml(profile.bio)}</div>` : ''}
+            <div class="profile-stats">
+              <span><strong>${repoCount}</strong> repos</span>
+              <span><strong>${profile.followers}</strong> followers</span>
+              <span><strong>${profile.following}</strong> following</span>
+            </div>
+          </div>
+        </div>
+      `;
+
+      // Score overview
+      const counts = { health: 0, work: 0, growth: 0 };
+      findings.forEach(f => counts[f.category]++);
+      document.getElementById('scoreOverview').innerHTML = `
+        <div class="score-card health">
+          <div class="count">${counts.health}</div>
+          <div class="label">Health</div>
+        </div>
+        <div class="score-card work">
+          <div class="count">${counts.work}</div>
+          <div class="label">Work</div>
+        </div>
+        <div class="score-card growth">
+          <div class="count">${counts.growth}</div>
+          <div class="label">Growth</div>
+        </div>
+      `;
+
+      // Focus list
+      if (findings.length === 0) {
+        document.getElementById('focusList').innerHTML = `
+          <div class="empty-state">
+            <div class="emoji">&#x2728;</div>
+            <p>Looking good! No focus items found for this profile.</p>
+          </div>
+        `;
+      } else {
+        document.getElementById('focusList').innerHTML = findings.map((f, i) => `
+          <div class="focus-item" data-category="${f.category}">
+            <div class="focus-rank">#${i + 1}</div>
+            <div class="focus-content">
+              <div class="focus-title">${f.url ? `<a href="${f.url}" target="_blank" rel="noopener">${escapeHtml(f.title)}</a>` : escapeHtml(f.title)}</div>
+              <div class="focus-desc">${escapeHtml(f.desc)}</div>
+              <div class="focus-meta">
+                <span class="focus-tag ${f.category}">${f.category}</span>
+                <span class="focus-score">score: ${f.score.toFixed(1)}</span>
+              </div>
+            </div>
+          </div>
+        `).join('');
+      }
+
+      // Cache notice
+      const notice = document.getElementById('cacheNotice');
+      const rescanBtn = document.getElementById('rescanBtn');
+      if (fromCache && data.age) {
+        const hours = Math.floor(data.age / (60 * 60 * 1000));
+        const mins = Math.floor((data.age % (60 * 60 * 1000)) / (60 * 1000));
+        notice.textContent = hours > 0 ? `cached ${hours}h ${mins}m ago` : `cached ${mins}m ago`;
+        rescanBtn.style.display = 'inline-flex';
+      } else {
+        notice.textContent = '';
+        rescanBtn.style.display = 'none';
+      }
+
+      showResults();
+    }
+
+    function escapeHtml(s) {
+      const div = document.createElement('div');
+      div.textContent = s;
+      return div.innerHTML;
+    }
+
+    function rescan() {
+      if (currentUsername) {
+        const key = CACHE_PREFIX + currentUsername.toLowerCase();
+        localStorage.removeItem(key);
+        startAnalysis(currentUsername);
+      }
+    }
+
+    // ── Canvas Particles ──
+    function initParticles() {
+      const canvas = document.getElementById('particles');
+      const ctx = canvas.getContext('2d');
+      let w, h, particles;
+
+      function resize() {
+        w = canvas.width = window.innerWidth;
+        h = canvas.height = window.innerHeight;
+      }
+
+      function createParticles() {
+        const count = Math.floor((w * h) / 15000);
+        particles = Array.from({ length: count }, () => ({
+          x: Math.random() * w,
+          y: Math.random() * h,
+          vx: (Math.random() - 0.5) * 0.3,
+          vy: (Math.random() - 0.5) * 0.3,
+          r: Math.random() * 1.5 + 0.5,
+          a: Math.random() * 0.3 + 0.1,
+        }));
+      }
+
+      function draw() {
+        ctx.clearRect(0, 0, w, h);
+        for (const p of particles) {
+          p.x += p.vx;
+          p.y += p.vy;
+          if (p.x < 0) p.x = w;
+          if (p.x > w) p.x = 0;
+          if (p.y < 0) p.y = h;
+          if (p.y > h) p.y = 0;
+
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(108, 92, 231, ${p.a})`;
+          ctx.fill();
+        }
+        requestAnimationFrame(draw);
+      }
+
+      resize();
+      createParticles();
+      draw();
+      window.addEventListener('resize', () => { resize(); createParticles(); });
+    }
+
+    // ── Init ──
+    (function init() {
+      handleOAuthCallback();
+      updateAuthUI();
+      initParticles();
+
+      const params = new URLSearchParams(location.search);
+      const u = params.get('u');
+      if (u) {
+        document.getElementById('usernameInput').value = u;
+        startAnalysis(u);
+      }
+    })();
+  </script>
+</body>
+</html>
